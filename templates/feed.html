@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="btn" href="/newpost">New Post</a>
+<br><br>
+{% for post in posts %}
+<div class="post">
+    <p>{{ post[2] }}</p>
+    <a class="poke-btn" href="/poke/{{ post[0] }}">👇 Poke ({{ post[3] }})</a>
+    <div class="comment-box">
+        {% for comment in post[4] %}
+        <div class="comment"><b>{{ comment[2] }}</b>: {{ comment[3] }}</div>
+        {% endfor %}
+        <form method="POST" action="/comment/{{ post[0] }}">
+            <input type="text" name="name" placeholder="Your name" required>
+            <input type="text" name="content" placeholder="Write a comment..." required>
+            <button type="submit" class="btn">Comment</button>
+        </form>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

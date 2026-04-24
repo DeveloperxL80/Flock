@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flock</title>
+    <style>
+        * {margin:0;padding:0;box-sizing:border-box;}
+        body {font-family:Arial;background-color:#f0f2f5;}
+        .navbar {background-color:#1877f2;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;}
+        .navbar h1 {color:white;font-size:20px;}
+        .navbar a {color:white;text-decoration:none;margin:0 10px;font-size:14px;}
+        .search-bar {padding:6px;border-radius:20px;border:none;width:150px;}
+        .content {padding:20px;}
+        .post {background-color:white;border-radius:10px;padding:15px;margin:10px 0;box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+        .btn {background-color:#1877f2;color:white;padding:8px 15px;border:none;border-radius:5px;text-decoration:none;cursor:pointer;}
+        .poke-btn {color:orange;text-decoration:none;font-size:14px;margin-right:10px;}
+        .comment {background:#f0f2f5;border-radius:5px;padding:8px;margin:5px 0;font-size:13px;}
+        .comment-box {margin-top:10px;border-top:1px solid #eee;padding-top:10px;}
+        input,textarea {padding:8px;border:1px solid #ddd;border-radius:5px;margin:3px;}
+        .card {background-color:white;border-radius:10px;padding:15px;margin:10px 0;box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+        .profile-card {background-color:white;border-radius:10px;padding:20px;margin:10px 0;box-shadow:0 2px 5px rgba(0,0,0,0.1);text-align:center;}
+        .support-btn {background-color:#42b72a;color:white;padding:8px 15px;border:none;border-radius:5px;text-decoration:none;}
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>🐦 Flock</h1>
+        <form method="GET" action="/search">
+            <input class="search-bar" type="text" name="q" placeholder="Search...">
+        </form>
+        <div>
+            <a href="/feed">Feed</a>
+            <a href="/newpost">Post</a>
+            <a href="/profile/1">Profile</a>
+        </div>
+    </div>
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

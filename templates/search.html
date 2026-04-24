@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="GET" action="/search">
+    <input type="text" name="q" placeholder="Search users or posts..." value="{{ query }}">
+    <button type="submit" class="btn">Search</button>
+</form>
+<br>
+<h3>Users</h3>
+{% for user in users %}
+<div class="card">
+    <b>👤 {{ user[1] }}</b>
+    <p>{{ user[5] if user[5] else "No bio" }}</p>
+    <a class="btn" href="/profile/{{ user[0] }}">View Profile</a>
+</div>
+{% endfor %}
+<h3>Posts</h3>
+{% for post in posts %}
+<div class="card">
+    <p>{{ post[2] }}</p>
+</div>
+{% endfor %}
+{% endblock %}
