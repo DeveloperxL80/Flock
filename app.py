@@ -2,6 +2,7 @@ from flask import Flask,render_template,request,redirect,session
 import sqlite3
 app=Flask(__name__)
 app.secret_key="flock_secret_123"
+ADMIN_PASSWORD="infoempty.gg"
 def init_db():
  conn=sqlite3.connect("users.db")
  conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY,name TEXT,email TEXT,password TEXT,dob TEXT,bio TEXT)")
@@ -21,6 +22,10 @@ def register():
  password=request.form["password"]
  dob=request.form["dob"]
  conn=sqlite3.connect("users.db")
+ existing=conn.execute("SELECT * FROM users WHERE email=?",(email,)).fetchone()
+ if existing:
+  conn.close()
+  return "This email is already registered!"
  conn.execute("INSERT INTO users (name,email,password,dob) VALUES (?,?,?,?)",(name,email,password,dob))
  conn.commit()
  conn.close()
@@ -45,6 +50,42 @@ def login_post():
 def logout():
  session.clear()
  return redirect("/login")
+@app.route("/admin",methods=["GET","POST"])
+def admin():
+ if request.method=="POST":
+  if request.form["password"]==ADMIN_PASSWORD:
+   session["is_admin"]=True
+   return redirect("/admin")
+  else:
+   return "Wrong admin password!"
+ if not session.get("is_admin"):
+  return render_template("admin_login.html")
+ conn=sqlite3.connect("users.db")
+ users=conn.execute("SELECT * FROM users").fetchall()
+ posts=conn.execute("SELECT * FROM posts").fetchall()
+ total_users=len(users)
+ total_posts=len(posts)
+ total_comments=conn.execute("SELECT COUNT(*) FROM comments").fetchone()[0]
+ conn.close()
+ return render_template("admin.html",users=users,posts=posts,total_users=total_users,total_posts=total_posts,total_comments=total_comments)
+@app.route("/admin/delete_user/<int:user_id>")
+def delete_user(user_id):
+ if not session.get("is_admin"):
+  return redirect("/admin")
+ conn=sqlite3.connect("users.db")
+ conn.execute("DELETE FROM users WHERE id=?",(user_id,))
+ conn.commit()
+ conn.close()
+ return redirect("/admin")
+@app.route("/admin/delete_post/<int:post_id>")
+def delete_post(post_id):
+ if not session.get("is_admin"):
+  return redirect("/admin")
+ conn=sqlite3.connect("users.db")
+ conn.execute("DELETE FROM posts WHERE id=?",(post_id,))
+ conn.commit()
+ conn.close()
+ return redirect("/admin")
 @app.route("/profile")
 def profile():
  if "user_id" not in session:
