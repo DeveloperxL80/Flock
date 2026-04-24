@@ -5,9 +5,9 @@
     <h2>{{ user[1] }}</h2>
     <p>{{ user[5] if user[5] else "Hey, I am on Flock!" }}</p>
     <p>🤝 <b>{{ supporters }}</b> Supporters</p>
-    <a class="support-btn" href="/support/{{ user[0] }}/1">🤝 Support</a>
+    <a class="support-btn" href="/support/{{ user[0] }}">🤝 Support</a>
     <br><br>
-    <form method="POST" action="/update_bio/{{ user[0] }}">
+    <form method="POST" action="/update_bio">
         <textarea name="bio" placeholder="Write your bio...">{{ user[5] if user[5] else "" }}</textarea>
         <br>
         <button type="submit" class="btn">Update Bio</button>
