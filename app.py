@@ -1,16 +1,23 @@
 from flask import Flask,render_template,request,redirect,session
-import sqlite3
+import psycopg2
+import os
 app=Flask(__name__)
 app.secret_key="flock_secret_123"
 ADMIN_PASSWORD="infoempty.gg"
+DATABASE_URL=os.environ.get("DATABASE_URL")
+def get_db():
+ conn=psycopg2.connect(DATABASE_URL)
+ return conn
 def init_db():
- conn=sqlite3.connect("users.db")
- conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY,name TEXT,email TEXT,password TEXT,dob TEXT,bio TEXT)")
- conn.execute("CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY,name TEXT,content TEXT)")
- conn.execute("CREATE TABLE IF NOT EXISTS pokes (id INTEGER PRIMARY KEY,post_id INTEGER)")
- conn.execute("CREATE TABLE IF NOT EXISTS supports (id INTEGER PRIMARY KEY,follower_id INTEGER,following_id INTEGER)")
- conn.execute("CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY,post_id INTEGER,name TEXT,content TEXT)")
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY,name TEXT,email TEXT,password TEXT,dob TEXT,bio TEXT)")
+ cur.execute("CREATE TABLE IF NOT EXISTS posts (id SERIAL PRIMARY KEY,name TEXT,content TEXT)")
+ cur.execute("CREATE TABLE IF NOT EXISTS pokes (id SERIAL PRIMARY KEY,post_id INTEGER)")
+ cur.execute("CREATE TABLE IF NOT EXISTS supports (id SERIAL PRIMARY KEY,follower_id INTEGER,following_id INTEGER)")
+ cur.execute("CREATE TABLE IF NOT EXISTS comments (id SERIAL PRIMARY KEY,post_id INTEGER,name TEXT,content TEXT)")
  conn.commit()
+ cur.close()
  conn.close()
 @app.route("/")
 def home():
@@ -21,13 +28,17 @@ def register():
  email=request.form["email"]
  password=request.form["password"]
  dob=request.form["dob"]
- conn=sqlite3.connect("users.db")
- existing=conn.execute("SELECT * FROM users WHERE email=?",(email,)).fetchone()
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("SELECT * FROM users WHERE email=%s",(email,))
+ existing=cur.fetchone()
  if existing:
+  cur.close()
   conn.close()
   return "This email is already registered!"
- conn.execute("INSERT INTO users (name,email,password,dob) VALUES (?,?,?,?)",(name,email,password,dob))
+ cur.execute("INSERT INTO users (name,email,password,dob) VALUES (%s,%s,%s,%s)",(name,email,password,dob))
  conn.commit()
+ cur.close()
  conn.close()
  return redirect("/login")
 @app.route("/login")
@@ -37,8 +48,11 @@ def login():
 def login_post():
  email=request.form["email"]
  password=request.form["password"]
- conn=sqlite3.connect("users.db")
- user=conn.execute("SELECT * FROM users WHERE email=? AND password=?",(email,password)).fetchone()
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("SELECT * FROM users WHERE email=%s AND password=%s",(email,password))
+ user=cur.fetchone()
+ cur.close()
  conn.close()
  if user:
   session["user_id"]=user[0]
@@ -60,59 +74,79 @@ def admin():
    return "Wrong admin password!"
  if not session.get("is_admin"):
   return render_template("admin_login.html")
- conn=sqlite3.connect("users.db")
- users=conn.execute("SELECT * FROM users").fetchall()
- posts=conn.execute("SELECT * FROM posts").fetchall()
- total_users=len(users)
- total_posts=len(posts)
- total_comments=conn.execute("SELECT COUNT(*) FROM comments").fetchone()[0]
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("SELECT * FROM users")
+ users=cur.fetchall()
+ cur.execute("SELECT * FROM posts")
+ posts=cur.fetchall()
+ cur.execute("SELECT COUNT(*) FROM comments")
+ total_comments=cur.fetchone()[0]
+ cur.close()
  conn.close()
- return render_template("admin.html",users=users,posts=posts,total_users=total_users,total_posts=total_posts,total_comments=total_comments)
+ return render_template("admin.html",users=users,posts=posts,total_users=len(users),total_posts=len(posts),total_comments=total_comments)
 @app.route("/admin/delete_user/<int:user_id>")
 def delete_user(user_id):
  if not session.get("is_admin"):
   return redirect("/admin")
- conn=sqlite3.connect("users.db")
- conn.execute("DELETE FROM users WHERE id=?",(user_id,))
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("DELETE FROM users WHERE id=%s",(user_id,))
  conn.commit()
+ cur.close()
  conn.close()
  return redirect("/admin")
 @app.route("/admin/delete_post/<int:post_id>")
 def delete_post(post_id):
  if not session.get("is_admin"):
   return redirect("/admin")
- conn=sqlite3.connect("users.db")
- conn.execute("DELETE FROM posts WHERE id=?",(post_id,))
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("DELETE FROM posts WHERE id=%s",(post_id,))
  conn.commit()
+ cur.close()
  conn.close()
  return redirect("/admin")
 @app.route("/profile")
 def profile():
  if "user_id" not in session:
   return redirect("/login")
- conn=sqlite3.connect("users.db")
- user=conn.execute("SELECT * FROM users WHERE id=?",(session["user_id"],)).fetchone()
- posts=conn.execute("SELECT * FROM posts WHERE name=?",(user[1],)).fetchall()
- supporters=conn.execute("SELECT COUNT(*) FROM supports WHERE following_id=?",(session["user_id"],)).fetchone()[0]
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("SELECT * FROM users WHERE id=%s",(session["user_id"],))
+ user=cur.fetchone()
+ cur.execute("SELECT * FROM posts WHERE name=%s",(user[1],))
+ posts=cur.fetchall()
+ cur.execute("SELECT COUNT(*) FROM supports WHERE following_id=%s",(session["user_id"],))
+ supporters=cur.fetchone()[0]
+ cur.close()
  conn.close()
  return render_template("profile.html",user=user,posts=posts,supporters=supporters)
 @app.route("/profile/<int:user_id>")
 def profile_view(user_id):
- conn=sqlite3.connect("users.db")
- user=conn.execute("SELECT * FROM users WHERE id=?",(user_id,)).fetchone()
- posts=conn.execute("SELECT * FROM posts WHERE name=?",(user[1],)).fetchall()
- supporters=conn.execute("SELECT COUNT(*) FROM supports WHERE following_id=?",(user_id,)).fetchone()[0]
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("SELECT * FROM users WHERE id=%s",(user_id,))
+ user=cur.fetchone()
+ cur.execute("SELECT * FROM posts WHERE name=%s",(user[1],))
+ posts=cur.fetchall()
+ cur.execute("SELECT COUNT(*) FROM supports WHERE following_id=%s",(user_id,))
+ supporters=cur.fetchone()[0]
+ cur.close()
  conn.close()
  return render_template("profile.html",user=user,posts=posts,supporters=supporters)
 @app.route("/support/<int:user_id>")
 def support(user_id):
  if "user_id" not in session:
   return redirect("/login")
- conn=sqlite3.connect("users.db")
- existing=conn.execute("SELECT * FROM supports WHERE follower_id=? AND following_id=?",(session["user_id"],user_id)).fetchone()
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("SELECT * FROM supports WHERE follower_id=%s AND following_id=%s",(session["user_id"],user_id))
+ existing=cur.fetchone()
  if not existing:
-  conn.execute("INSERT INTO supports (follower_id,following_id) VALUES (?,?)",(session["user_id"],user_id))
+  cur.execute("INSERT INTO supports (follower_id,following_id) VALUES (%s,%s)",(session["user_id"],user_id))
   conn.commit()
+ cur.close()
  conn.close()
  return redirect("/profile/"+str(user_id))
 @app.route("/update_bio",methods=["POST"])
@@ -120,9 +154,11 @@ def update_bio():
  if "user_id" not in session:
   return redirect("/login")
  bio=request.form["bio"]
- conn=sqlite3.connect("users.db")
- conn.execute("UPDATE users SET bio=? WHERE id=?",(bio,session["user_id"]))
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("UPDATE users SET bio=%s WHERE id=%s",(bio,session["user_id"]))
  conn.commit()
+ cur.close()
  conn.close()
  return redirect("/profile")
 @app.route("/newpost")
@@ -135,35 +171,38 @@ def post_submit():
  if "user_id" not in session:
   return redirect("/login")
  content=request.form["content"]
- conn=sqlite3.connect("users.db")
- conn.execute("INSERT INTO posts (name,content) VALUES (?,?)",(session["user_name"],content))
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("INSERT INTO posts (name,content) VALUES (%s,%s)",(session["user_name"],content))
  conn.commit()
- raw=conn.execute("SELECT posts.id,posts.name,posts.content,COUNT(pokes.id) FROM posts LEFT JOIN pokes ON posts.id=pokes.post_id GROUP BY posts.id").fetchall()
- posts=[]
- for p in raw:
-  comments=conn.execute("SELECT * FROM comments WHERE post_id=?",(p[0],)).fetchall()
-  posts.append((p[0],p[1],p[2],p[3],comments))
+ cur.close()
  conn.close()
- return render_template("feed.html",posts=posts)
+ return redirect("/feed")
 @app.route("/feed")
 def feed():
  if "user_id" not in session:
   return redirect("/login")
- conn=sqlite3.connect("users.db")
- raw=conn.execute("SELECT posts.id,posts.name,posts.content,COUNT(pokes.id) FROM posts LEFT JOIN pokes ON posts.id=pokes.post_id GROUP BY posts.id").fetchall()
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("SELECT posts.id,posts.name,posts.content,COUNT(pokes.id) FROM posts LEFT JOIN pokes ON posts.id=pokes.post_id GROUP BY posts.id")
+ raw=cur.fetchall()
  posts=[]
  for p in raw:
-  comments=conn.execute("SELECT * FROM comments WHERE post_id=?",(p[0],)).fetchall()
+  cur.execute("SELECT * FROM comments WHERE post_id=%s",(p[0],))
+  comments=cur.fetchall()
   posts.append((p[0],p[1],p[2],p[3],comments))
+ cur.close()
  conn.close()
  return render_template("feed.html",posts=posts)
 @app.route("/poke/<int:post_id>")
 def poke(post_id):
  if "user_id" not in session:
   return redirect("/login")
- conn=sqlite3.connect("users.db")
- conn.execute("INSERT INTO pokes (post_id) VALUES (?)",(post_id,))
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("INSERT INTO pokes (post_id) VALUES (%s)",(post_id,))
  conn.commit()
+ cur.close()
  conn.close()
  return redirect("/feed")
 @app.route("/comment/<int:post_id>",methods=["POST"])
@@ -171,9 +210,11 @@ def comment(post_id):
  if "user_id" not in session:
   return redirect("/login")
  content=request.form["content"]
- conn=sqlite3.connect("users.db")
- conn.execute("INSERT INTO comments (post_id,name,content) VALUES (?,?,?)",(post_id,session["user_name"],content))
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("INSERT INTO comments (post_id,name,content) VALUES (%s,%s,%s)",(post_id,session["user_name"],content))
  conn.commit()
+ cur.close()
  conn.close()
  return redirect("/feed")
 @app.route("/search")
@@ -181,9 +222,13 @@ def search():
  if "user_id" not in session:
   return redirect("/login")
  query=request.args.get("q","")
- conn=sqlite3.connect("users.db")
- users=conn.execute("SELECT * FROM users WHERE name LIKE ?",(("%"+query+"%"),)).fetchall()
- posts=conn.execute("SELECT * FROM posts WHERE content LIKE ?",(("%"+query+"%"),)).fetchall()
+ conn=get_db()
+ cur=conn.cursor()
+ cur.execute("SELECT * FROM users WHERE name LIKE %s",("%"+query+"%",))
+ users=cur.fetchall()
+ cur.execute("SELECT * FROM posts WHERE content LIKE %s",("%"+query+"%",))
+ posts=cur.fetchall()
+ cur.close()
  conn.close()
  return render_template("search.html",users=users,posts=posts,query=query)
 init_db()
